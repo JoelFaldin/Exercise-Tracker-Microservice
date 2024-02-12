@@ -28,7 +28,27 @@ const userSchema = new mongoose.Schema({
   }
 })
 
-const User = mongoose.model('User', userSchema)
+const User = mongoose.model('User', userSchema);
+
+const exerciseSchema = new mongoose.Schema({
+  user_id: {
+    type: String,
+    required: true
+  },
+  description: {
+    type: String,
+    required: true
+  },
+  duration: {
+    type: String,
+    required: true
+  },
+  date: {
+    type: String
+  }
+})
+
+const Exercise = mongoose.model('Exercise', exerciseSchema);
 
 app.get('/', (req, res) => {
   res.sendFile(__dirname + '/views/index.html')
@@ -56,6 +76,29 @@ app.post('/api/users', async (req, res) => {
 app.get('/api/users', async (req, res) => {
   const userList = await User.find({});
   res.json(userList);
+})
+
+// Create an exercise:
+app.post('/api/users/:_id/exercises', async (req, res) => {
+  const id = req.params._id;
+  const { description, duration, date } = req.body
+  const user = await User.findById(id)
+
+  const newExercise = new Exercise({
+    user_id: user._id,
+    description,
+    duration,
+    date: date !== '' ? date : (new Date()).toDateString()
+  })
+
+  await newExercise.save();
+  res.json({
+    _id: user._id,
+    username: user.username,
+    description,
+    duration,
+    date: newExercise.date
+  })
 })
 
 
