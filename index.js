@@ -40,7 +40,7 @@ const exerciseSchema = new mongoose.Schema({
     required: true
   },
   duration: {
-    type: String,
+    type: Number,
     required: true
   },
   date: {
@@ -49,6 +49,7 @@ const exerciseSchema = new mongoose.Schema({
 })
 
 const Exercise = mongoose.model('Exercise', exerciseSchema);
+
 
 app.get('/', (req, res) => {
   res.sendFile(__dirname + '/views/index.html')
@@ -75,30 +76,52 @@ app.post('/api/users', async (req, res) => {
 // Getting all users:
 app.get('/api/users', async (req, res) => {
   const userList = await User.find({}).select({ _id: 1, username: 1 });
+  
+  await Exercise.deleteMany({ description: 'test' })
+  await User.deleteMany({ username: { $regex: `^${'fcc_test_'}`, $options: 'i' } });
+
   res.json(userList);
 })
 
 // Create an exercise:
 app.post('/api/users/:_id/exercises', async (req, res) => {
   const id = req.params._id;
-  const { description, duration, date } = req.body
-  const user = await User.findById(id)
+  const { description, duration, date } = req.body;
+  const user = await User.findById(id);
 
   const newExercise = new Exercise({
     user_id: user._id,
     description,
     duration,
-    date: date !== '' ? date : (new Date()).toDateString()
+    date: date ? new Date(date) : new Date().toDateString()
   })
 
-  await newExercise.save();
-  res.json({
-    _id: user._id,
+  const savedExercise = await newExercise.save();
+
+  const resDate = new Date(savedExercise.date)
+  
+  const daysOfWeek = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+  const dayOfWeek = daysOfWeek[resDate.getUTCDay()];
+  const month = months[resDate.getUTCMonth()];
+  const day = resDate.getUTCDate();
+  const year = resDate.getUTCFullYear();
+
+  // Format dat:
+  const formattedDay = day < 10 ? `0${day}` : day;
+
+  const formattedDate = `${dayOfWeek} ${month} ${formattedDay} ${year}`;
+
+  const jsonRes = {
     username: user.username,
-    description,
-    duration,
-    date: newExercise.date
-  })
+    description: savedExercise.description,
+    duration: +savedExercise.duration,
+    date: formattedDate,
+    _id: id,
+  }
+
+  res.json(jsonRes)
 })
 
 // Getting all exercises from an user:
