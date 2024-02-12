@@ -74,7 +74,7 @@ app.post('/api/users', async (req, res) => {
 
 // Getting all users:
 app.get('/api/users', async (req, res) => {
-  const userList = await User.find({});
+  const userList = await User.find({}).select({ _id: 1, username: 1 });
   res.json(userList);
 })
 
@@ -98,6 +98,40 @@ app.post('/api/users/:_id/exercises', async (req, res) => {
     description,
     duration,
     date: newExercise.date
+  })
+})
+
+// Getting all exercises from an user:
+app.get('/api/users/:_id/logs', async (req, res) => {
+  const userId = req.params._id;
+  const { from, to, limit } = req.query;
+
+  const user = await User.findById(userId);
+  
+  let date = {};
+  if (from) {
+    date["$gte"] = new Date(from);
+  }
+  if (to) {
+    date["$lte"] = new Date(to);
+  }
+
+  let filter = {
+    user_id: user.id
+  }
+
+  if (from || to) {
+    filter.date = date
+  }
+  
+  const exercises = await Exercise.find(filter).select({ _id: 0, description: 1, duration: 1, date: 1 });
+  const count = exercises.length;
+
+  res.json({
+    user: user.username,
+    count,
+    _id: user._id,
+    log: exercises
   })
 })
 
