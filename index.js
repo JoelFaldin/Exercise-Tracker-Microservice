@@ -147,7 +147,7 @@ app.get('/api/users/:_id/logs', async (req, res) => {
     filter.date = date
   }
   
-  const exercises = await Exercise.find(filter).select({ _id: 0, description: 1, duration: 1, date: 1 });
+  const exercises = await Exercise.find(filter).limit(limit).select({ _id: 0, description: 1, duration: 1, date: 1 });
   const count = exercises.length;
 
   res.json({
