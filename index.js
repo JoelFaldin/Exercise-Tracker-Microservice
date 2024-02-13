@@ -1,137 +1,130 @@
-require('dotenv').config()
-const express = require('express')
-const cors = require('cors')
-const app = express()
+require("dotenv").config();
+const express = require("express");
+const cors = require("cors");
+const app = express();
 
-app.use(cors())
-app.use(express.static('public'))
-
+app.use(cors());
+app.use(express.static("public"));
 app.use(express.urlencoded({ extended: true }));
 
 // Connection to mongodb:
-const mongoose = require('mongoose')
-const mongo_url = process.env.MONGO_URI
-mongoose.set('strictQuery', false)
+const mongoose = require("mongoose");
 
-mongoose.connect(mongo_url)
-  .then(() => {
-    console.log('Database conected! 🌿🌿🌿')
-  })
-    .catch(error => {
-      console.log('DataBase refused to connect. ', error.message)
-  })
+mongoose.connect(process.env.MONGO_URI);
 
-const userSchema = new mongoose.Schema({
-  username: {
-    type: String,
-    required: true
-  }
-})
+const UserSchema = new mongoose.Schema({
+  username: String,
+});
+const User = mongoose.model("User", UserSchema);
 
-const User = mongoose.model('User', userSchema);
-
-const exerciseSchema = new mongoose.Schema({
+const ExerciseSchema = new mongoose.Schema({
   user_id: {
     type: String,
-    required: true
+    required: true,
   },
-  description: {
-    type: String,
-    required: true
-  },
-  duration: {
-    type: Number,
-    required: true
-  },
-  date: {
-    type: String
-  }
-})
+  description: String,
+  duration: Number,
+  date: Date,
+});
+const Exercise = mongoose.model("Exercise", ExerciseSchema);
 
-const Exercise = mongoose.model('Exercise', exerciseSchema);
-
-
-app.get('/', (req, res) => {
-  res.sendFile(__dirname + '/views/index.html')
+app.get("/", (req, res) => {
+  res.sendFile(__dirname + "/views/index.html");
 });
 
-// Creating a new user:
-app.post('/api/users', async (req, res) => {
-  const username = req.body.username;
-  
-  const existsUser = await User.findOne({ username });
-  if (!existsUser) {
-    const newUser = new User ({
-      username
-    })
+app.post("/api/users", async (req, res) => {
+  const user = new User({ username: req.body.username });
 
-    await newUser.save();
-    res.json({ username, _id: newUser._id });
+  try {
+    const savedUser = await user.save();
+    res.json(savedUser);
+  } catch (error) {
+    console.log(error);
+  }
+});
+
+app.get("/api/users", async (req, res) => {
+  const users = await User.find({}).select("_id username");
+  if (!users) {
+    res.send({ error: "No users found!" });
   } else {
-    console.log(existsUser)
-    res.json({ username: existsUser.username, _id: existsUser._id });
+    res.json(users);
   }
 });
 
-// Getting all users:
-app.get('/api/users', async (req, res) => {
-  const userList = await User.find({}).select({ _id: 1, username: 1 });
-  
-  await Exercise.deleteMany({ description: 'test' })
-  await User.deleteMany({ username: { $regex: `^${'fcc_test_'}`, $options: 'i' } });
-
-  res.json(userList);
-})
-
-// Create an exercise:
-app.post('/api/users/:_id/exercises', async (req, res) => {
+app.post("/api/users/:_id/exercises", async (req, res) => {
   const id = req.params._id;
   const { description, duration, date } = req.body;
-  const user = await User.findById(id);
 
-  const newExercise = new Exercise({
-    user_id: user._id,
-    description,
-    duration,
-    date: date ? new Date(date) : new Date().toDateString()
-  })
+  try {
+    const user = await User.findById(id);
+    if (!user) {
+      res.send({ error: "Could not find user" });
+    } else {
+      const exercise = new Exercise({
+        user_id: user._id,
+        description,
+        duration,
+        date: date ? new Date(date) : new Date(),
+      });
+      const savedExercise = await exercise.save();
 
-  const savedExercise = await newExercise.save();
+      const resDate = new Date(savedExercise.date);
 
-  const resDate = new Date(savedExercise.date)
-  
-  const daysOfWeek = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      const daysOfWeek = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+      const months = [
+        "Jan",
+        "Feb",
+        "Mar",
+        "Apr",
+        "May",
+        "Jun",
+        "Jul",
+        "Aug",
+        "Sep",
+        "Oct",
+        "Nov",
+        "Dec",
+      ];
 
-  const dayOfWeek = daysOfWeek[resDate.getUTCDay()];
-  const month = months[resDate.getUTCMonth()];
-  const day = resDate.getUTCDate();
-  const year = resDate.getUTCFullYear();
+      const dayOfWeek = daysOfWeek[resDate.getUTCDay()];
+      const month = months[resDate.getUTCMonth()];
+      const day = resDate.getUTCDate();
+      const year = resDate.getUTCFullYear();
 
-  // Format dat:
-  const formattedDay = day < 10 ? `0${day}` : day;
+      // Format dat:
+      const formattedDay = day < 10 ? `0${day}` : day;
 
-  const formattedDate = `${dayOfWeek} ${month} ${formattedDay} ${year}`;
+      const formattedDate = `${dayOfWeek} ${month} ${formattedDay} ${year}`;
 
-  const jsonRes = {
-    username: user.username,
-    description: savedExercise.description,
-    duration: +savedExercise.duration,
-    date: formattedDate,
-    _id: id,
+      const resJSON = {
+        _id: user._id,
+        username: user.username,
+        description: savedExercise.description,
+        duration: savedExercise.duration,
+        date: formattedDate,
+      };
+      console.log(resJSON);
+      res.json(resJSON);
+    }
+  } catch (error) {
+    console.log(error);
+    res.send({ error: "Error saving the exercise D:" });
   }
+});
 
-  res.json(jsonRes)
-})
-
-// Getting all exercises from an user:
-app.get('/api/users/:_id/logs', async (req, res) => {
-  const userId = req.params._id;
+app.get("/api/users/:_id/logs", async (req, res) => {
   const { from, to, limit } = req.query;
+  const userId = req.params._id;
 
   const user = await User.findById(userId);
-  
+  if (!user) {
+    res.send({ error: "User not found D:" });
+    return;
+  }
+
   let date = {};
+
   if (from) {
     date["$gte"] = new Date(from);
   }
@@ -140,28 +133,30 @@ app.get('/api/users/:_id/logs', async (req, res) => {
   }
 
   let filter = {
-    user_id: user.id
-  }
+    user_id: userId,
+  };
 
   if (from || to) {
-    filter.date = date
+    filter.date = date;
   }
-  
-  const exercises = await Exercise.find(filter).limit(limit).select({ _id: 0, description: 1, duration: 1, date: 1 });
-  const count = exercises.length;
+
+  const exercises = await Exercise.find(filter).limit(+limit ?? 100);
+
+  const log = exercises.map((exercise) => ({
+    description: exercise.description,
+    duration: exercise.duration,
+    date: exercise.date.toDateString(),
+  }));
 
   res.json({
-    user: user.username,
-    count,
+    username: user.username,
+    count: exercises.length,
     _id: user._id,
-    log: exercises
-  })
-})
-
-
-
+    log,
+  });
+});
 
 const listener = app.listen(process.env.PORT || 3000, () => {
-  console.log('Your app is listening on port ' + listener.address().port);
-  console.log(`http://localhost:${listener.address().port}`);
-})
+  console.log("Your app is listening on port " + listener.address().port);
+  console.log(`http://localhost:${listener.address().port} 🪴🪴🪴`);
+});
